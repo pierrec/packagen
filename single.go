@@ -8,38 +8,60 @@ import (
 	"go/printer"
 	"go/token"
 	"go/types"
-	"golang.org/x/tools/imports"
 	"io"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/imports"
 )
 
 // SingleOption defines the options for the Single processor.
 type SingleOption struct {
-	PkgName    string              // Package to be processed
-	NewPkgName string              // Name of the resulting package
+	Patterns   []string            // Packages to be processed
+	NewPkgName string              // Name of the resulting package (default=current working dir package)
+	Prefix     string              // Prefix for the global identifiers (default=packageName_)
 	Types      map[string]string   // Map the names of the types to be renamed to their new one
 	Const      map[string]int      // Values for const to be updated
 	RmType     map[string]struct{} // Named types to be removed
-	Prefix     string              // Prefix for the global identifiers
+}
+
+// newpkgname returns the set value or a default one.
+func (o *SingleOption) newpkgname() (string, error) {
+	if o.NewPkgName != "" {
+		return o.NewPkgName, nil
+	}
+	// Use the current working directory package name.
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadFiles}, ".")
+	if len(pkgs) > 0 {
+		// Be optimistic: even if the local package has errors, return its name.
+		if p := pkgs[0].Name; p != "" {
+			return p, nil
+		}
+	}
+	if err == nil {
+		err = fmt.Errorf("cannot define new package name")
+	}
+	return "", err
+}
+
+// prefix returns the set value or a default one.
+func (o *SingleOption) prefix(pkg *packages.Package) string {
+	if o.Prefix != "" {
+		return o.Prefix
+	}
+	// Use the source package name as the prefix.
+	return pkg.Name + "_"
 }
 
 // Single packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
 func Single(out io.Writer, o SingleOption) error {
-	if o.NewPkgName == "" {
-		o.NewPkgName = filepath.Base(o.PkgName)
-	}
-
-	cfg := &packages.Config{Mode: packages.LoadSyntax}
-	pkgs, err := packages.Load(cfg, o.PkgName)
+	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, o.Patterns...)
 	if err != nil {
 		return err
 	}
 	if packages.PrintErrors(pkgs) > 0 {
-		return fmt.Errorf("too many errors while loading package %s", o.PkgName)
+		return fmt.Errorf("too many errors while loading package %s", o.Patterns)
 	}
 
 	// Rename types in all packages.
@@ -50,53 +72,57 @@ func Single(out io.Writer, o SingleOption) error {
 
 	// Prefix global declarations in all packages.
 	for _, pkg := range pkgs {
-		prefixPkg(pkg, o.Prefix, objsToUpdate)
+		prefixPkg(pkg, o.prefix(pkg), objsToUpdate)
 	}
 
 	// Build the single file package.
 	var buf bytes.Buffer
-	_, _ = fmt.Fprintf(&buf, "package %s\n\n", o.NewPkgName)
-
+	newName, err := o.newpkgname()
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(&buf, "package %s\n\n", newName)
+	if err != nil {
+		return err
+	}
 	//TODO test package is missing?
 	for _, pkg := range pkgs {
 		for _, f := range pkg.Syntax {
 		next:
 			for _, decl := range f.Decls {
-				decl, ok := decl.(*ast.GenDecl)
-				if !ok {
-					continue
-				}
-				switch decl.Tok {
-				case token.IMPORT:
-					// Skip imports.
-					continue
-				case token.CONST:
-					for _, spec := range decl.Specs {
-						v, ok := spec.(*ast.ValueSpec)
-						if !ok {
-							continue
-						}
-						for i, id := range v.Names {
-							lit, ok := v.Values[i].(*ast.BasicLit)
+				if decl, ok := decl.(*ast.GenDecl); ok {
+					switch decl.Tok {
+					case token.IMPORT:
+						// Skip imports.
+						continue
+					case token.CONST:
+						for _, spec := range decl.Specs {
+							v, ok := spec.(*ast.ValueSpec)
 							if !ok {
 								continue
 							}
-							// Check without the added prefix...
-							name := strings.TrimPrefix(id.Name, o.Prefix)
-							if n, ok := o.Const[name]; ok {
-								lit.Value = strconv.Itoa(n)
+							for i, id := range v.Names {
+								lit, ok := v.Values[i].(*ast.BasicLit)
+								if !ok {
+									continue
+								}
+								// Check without the added prefix...
+								name := strings.TrimPrefix(id.Name, o.prefix(pkg))
+								if n, ok := o.Const[name]; ok {
+									lit.Value = strconv.Itoa(n)
+								}
 							}
 						}
-					}
-				case token.TYPE:
-					for _, spec := range decl.Specs {
-						t, ok := spec.(*ast.TypeSpec)
-						if !ok {
-							continue
-						}
-						if _, ok := o.RmType[t.Name.Name]; ok {
-							// Type to be removed.
-							continue next
+					case token.TYPE:
+						for _, spec := range decl.Specs {
+							t, ok := spec.(*ast.TypeSpec)
+							if !ok {
+								continue
+							}
+							if _, ok := o.RmType[t.Name.Name]; ok {
+								// Type to be removed.
+								continue next
+							}
 						}
 					}
 				}
@@ -104,7 +130,10 @@ func Single(out io.Writer, o SingleOption) error {
 				if err != nil {
 					return err
 				}
-				_, _ = fmt.Fprint(&buf, "\n")
+				_, err = fmt.Fprint(&buf, "\n")
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
