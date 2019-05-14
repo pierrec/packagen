@@ -66,7 +66,7 @@ func init() {
 					defer buf.Flush()
 					out = buf
 				} else {
-					f, err := os.Open(outfile)
+					f, err := os.Create(outfile)
 					if err != nil {
 						return err
 					}
