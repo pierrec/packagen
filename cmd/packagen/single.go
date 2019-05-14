@@ -25,6 +25,10 @@ func init() {
 		Args:  "<list of patterns matching the packages to be processed>",
 		Init: func(set *flag.FlagSet) cmdflag.Initializer {
 			var o packagen.SingleOption
+			if verbose {
+				o.Log = newLogger()
+			}
+
 			set.StringVar(&o.NewPkgName, "newpkg", "",
 				"new package name (default=current working dir package)")
 			set.StringVar(&o.Prefix, "prefix", "",
@@ -50,7 +54,7 @@ func init() {
 
 			return func(args ...string) (err error) {
 				o.Patterns = args
-				o.RmType = buildRemove(rmtype)
+				o.RmTypes = buildRemove(rmtype)
 				o.Types, err = toMapString(mvtype)
 				if err != nil {
 					return err
@@ -78,7 +82,7 @@ func init() {
 				if err != nil {
 					return err
 				}
-				_, err = fmt.Fprintf(out, "//go:generate packagen/cmd/packagen/packagen %s\n",
+				_, err = fmt.Fprintf(out, "//go:generate go run github.com/pierrec/packagen/cmd/packagen %s\n",
 					strings.Join(os.Args[1:], " "))
 				if err != nil {
 					return err

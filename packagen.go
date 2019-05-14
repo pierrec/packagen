@@ -6,12 +6,15 @@ import (
 )
 
 // renamePkg renames all used type names with the ones in names for the given package.
-func renamePkg(pkg *packages.Package, names map[string]string, objsToUpdate map[types.Object]bool) {
+func renamePkg(pkg *packages.Package, names map[string]string, rmnames map[string]struct{}, objsToUpdate map[types.Object]bool) {
 	info := pkg.TypesInfo
 	for id, obj := range info.Defs {
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
-			id.Name = newname
+			if _, ok := rmnames[id.Name]; !ok {
+				// Exclude types to be removed.
+				id.Name = newname
+			}
 		}
 	}
 	for id, obj := range info.Uses {

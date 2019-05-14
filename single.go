@@ -9,6 +9,7 @@ import (
 	"go/token"
 	"go/types"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 
@@ -18,12 +19,13 @@ import (
 
 // SingleOption defines the options for the Single processor.
 type SingleOption struct {
+	Log        *log.Logger
 	Patterns   []string            // Packages to be processed
 	NewPkgName string              // Name of the resulting package (default=current working dir package)
 	Prefix     string              // Prefix for the global identifiers (default=packageName_)
 	Types      map[string]string   // Map the names of the types to be renamed to their new one
 	Const      map[string]int      // Values for const to be updated
-	RmType     map[string]struct{} // Named types to be removed
+	RmTypes    map[string]struct{} // Named types to be removed
 }
 
 // newpkgname returns the set value or a default one.
@@ -56,6 +58,9 @@ func (o *SingleOption) prefix(pkg *packages.Package) string {
 
 // Single packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
 func Single(out io.Writer, o SingleOption) error {
+	if o.Log != nil {
+		log.Printf("Loading packages with %v\n", o.Patterns)
+	}
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, o.Patterns...)
 	if err != nil {
 		return err
@@ -63,11 +68,14 @@ func Single(out io.Writer, o SingleOption) error {
 	if packages.PrintErrors(pkgs) > 0 {
 		return fmt.Errorf("too many errors while loading package %s", o.Patterns)
 	}
+	if o.Log != nil {
+		log.Printf("Found %d packages: %v\n", len(pkgs), pkgs)
+	}
 
 	// Rename types in all packages.
 	objsToUpdate := map[types.Object]bool{}
 	for _, pkg := range pkgs {
-		renamePkg(pkg, o.Types, objsToUpdate)
+		renamePkg(pkg, o.Types, o.RmTypes, objsToUpdate)
 	}
 
 	// Prefix global declarations in all packages.
@@ -96,9 +104,16 @@ func Single(out io.Writer, o SingleOption) error {
 						// Skip imports.
 						continue
 					case token.CONST:
+						if len(o.Const) == 0 {
+							break
+						}
 						for _, spec := range decl.Specs {
 							v, ok := spec.(*ast.ValueSpec)
 							if !ok {
+								continue
+							}
+							if len(v.Values) == 0 {
+								// initial values; or nil
 								continue
 							}
 							for i, id := range v.Names {
@@ -114,12 +129,15 @@ func Single(out io.Writer, o SingleOption) error {
 							}
 						}
 					case token.TYPE:
+						if len(o.RmTypes) == 0 {
+							break
+						}
 						for _, spec := range decl.Specs {
 							t, ok := spec.(*ast.TypeSpec)
 							if !ok {
 								continue
 							}
-							if _, ok := o.RmType[t.Name.Name]; ok {
+							if _, ok := o.RmTypes[t.Name.Name]; ok {
 								// Type to be removed.
 								continue next
 							}
@@ -139,11 +157,15 @@ func Single(out io.Writer, o SingleOption) error {
 	}
 
 	// Resolved imports and format the resulting code.
+	if o.Log != nil {
+		log.Printf("Resolving imports\n")
+	}
 	code, err := imports.Process("", buf.Bytes(), nil)
 	if err != nil {
+		// Output without imports.
+		_, _ = io.Copy(out, &buf)
 		return err
 	}
-
 	_, err = io.Copy(out, bytes.NewReader(code))
 
 	return err
