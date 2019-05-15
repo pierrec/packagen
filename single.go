@@ -98,7 +98,8 @@ func Single(out io.Writer, o SingleOption) error {
 		for _, f := range pkg.Syntax {
 		next:
 			for _, decl := range f.Decls {
-				if decl, ok := decl.(*ast.GenDecl); ok {
+				switch decl := decl.(type) {
+				case *ast.GenDecl:
 					switch decl.Tok {
 					case token.IMPORT:
 						// Skip imports.
@@ -141,6 +142,16 @@ func Single(out io.Writer, o SingleOption) error {
 								// Type to be removed.
 								continue next
 							}
+						}
+					}
+				case *ast.FuncDecl:
+					if len(o.RmTypes) == 0 || decl.Recv == nil {
+						break
+					}
+					if t, ok := decl.Recv.List[0].Type.(*ast.Ident); ok {
+						if _, ok := o.RmTypes[t.Name]; ok {
+							// Type to be removed.
+							continue next
 						}
 					}
 				}
