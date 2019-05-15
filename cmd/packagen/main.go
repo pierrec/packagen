@@ -14,6 +14,9 @@ var cli = cmdflag.New(nil)
 var verbose bool
 
 func newLogger() *log.Logger {
+	if !verbose {
+		return nil
+	}
 	return log.New(os.Stderr, "packagen", 0)
 }
 
