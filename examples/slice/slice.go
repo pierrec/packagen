@@ -1,26 +1,29 @@
 // This file is the reference implementation of the Slice type.
-// It is implemented for type Number, which can be substituted with any Go builtin number type:
-// int, int64, int32, int16, int8 or their float/uint counterparts.
+// It is implemented for type Item, which can be substituted with any type implementing the Less() method.
 package slice
 
-type Number int // this type will get removed for generated code
+type Item int // this type will get removed for generated code
 
-type Slice []Number // this type and its methods will be implemented and renamed with the relevant chosen type
+func (n Item) Less(p Item) bool {
+	return n < p
+}
 
-func (s Slice) Min() Number {
-	var m Number
+type Slice []Item // this type and its methods will be implemented and renamed with the relevant chosen type
+
+func (s Slice) Min() Item {
+	var m Item
 	for _, v := range s {
-		if v := Number(v); v < m {
+		if v := Item(v); v.Less(m) {
 			m = v
 		}
 	}
 	return m
 }
 
-func (s Slice) Max() Number {
-	var m Number
+func (s Slice) Max() Item {
+	var m Item
 	for _, v := range s {
-		if v := Number(v); v > m {
+		if v := Item(v); m.Less(v) {
 			m = v
 		}
 	}

@@ -1,4 +1,3 @@
-//go:generate go run github.com/pierrec/packagen/cmd/packagen -v single -nogen -o set_int.go -prefix Int -mvtype Elem=int -rmtype Elem set.go
 package set
 
 type Elem int
