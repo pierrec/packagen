@@ -1,5 +1,5 @@
-github.com/pierrec/cmdflag v0.0.0-20190515191100-ecbf643bf3f8 h1:JnfVRVj6pmaYDSwLzklzQVE9emZFyrKNWjU39IYNL28=
-github.com/pierrec/cmdflag v0.0.0-20190515191100-ecbf643bf3f8/go.mod h1:a3zKGZ3cdQUfxjd0RGMLZr8xI3nvpJOB+m6o/1X5BmU=
+github.com/pierrec/cmdflag v0.0.1 h1:NxKPQy5pFpkr9Gxq4DznRaOnL314SzqLqDC6Tgk4q4Q=
+github.com/pierrec/cmdflag v0.0.1/go.mod h1:a3zKGZ3cdQUfxjd0RGMLZr8xI3nvpJOB+m6o/1X5BmU=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/net v0.0.0-20190311183353-d8887717615a/go.mod h1:t9HGtf8HONx5eT2rtn7q6eTqICYqUVnKs3thJo3Qplg=
 golang.org/x/sync v0.0.0-20190423024810-112230192c58/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
