@@ -22,10 +22,28 @@ methods if necessary.
 The generated code contains the same types, functions etc than the source, but prefixed so that they do not collide
 with the code in the same package.
 
+The available command line options are:
+  - single <list of patterns matching the packages to be processed>
+    - -const **list of integer constants to be updated** (constname=integer[, ...])
+    - -mvtype **list of named types to be renamed** (old=new[, ...])
+    - -newpkg **new package name** (default=current working dir package)
+    - -nogen - do not add the generate directive
+    - -o **file** - write output to file (default=standard output)
+    - -prefix **prefix used to rename declarations** (default=packageName_)
+    - -rmtype **list of named types to be removed** (typename[, ...])
+
+
 ## Example
 
-Source file:
+Given a sorting algorithm implemented in the package `domain/user/sort`, generate the code for another integer type 
+with the following command:
+
+`packagen single -o int32s_gen.go -prefix Int32 -mvtype Numbers=Int32s -rmtype Numbers domain/user/sort`
+
+Source package:
 ```
+package sort
+
 type Numbers []int
 
 func (s Numbers) Len() int { return len(s) }
@@ -37,8 +55,10 @@ func Sort(s Numbers) {
 }
 ```
 
-Existing `int32s.go` file:
+In the new package `domain/user/myapp`, there is an existing `int32s.go` file:
 ```
+package myapp
+
 type Int32s []int32
 
 // Int32s implements the methods required by the sort algorithm.
@@ -47,9 +67,16 @@ func (s Int32s) Less(i, j int) bool { return s[i] < s[j] }
 func (s Int32s) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 ```
 
-File `int32s_gen.go` generated with `packagen single -o int32s_gen.go -prefix Int32 -mvtype Numbers=Int32s -rmtype Numbers`:
+The generated file `int32s_gen.go` contains:
 ```
-// All the code from the source is preserved and prefixed, except for the pivot type and its methods.
+//go:generate go run github/pierrec/packagen/cmd/packagen single -o int32s_gen.go -prefix Int32 -mvtype Numbers=Int32s -rmtype Numbers domain/user/sort
+package myapp
+
+// Note that the package name has been set automatically.
+// Also, the go:generate directive is added by default, but this can be disabled.
+
+// All the code from the source is preserved and top level declarations are prefixed, except for the pivot type and its 
+// methods which have been removed.
 func Int32Sort(s Int32s) {
     // ... sorting algorithm
 }

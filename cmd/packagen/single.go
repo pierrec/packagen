@@ -47,7 +47,7 @@ func init() {
 
 			var upconst string
 			set.StringVar(&upconst, "const", "",
-				fmt.Sprintf("list of interger consts to be updated: constname%cinteger[%c ...]",
+				fmt.Sprintf("list of integer constants to be updated: constname%cinteger[%c ...]",
 					typeSeparator, listSeparator))
 
 			var outfile string
