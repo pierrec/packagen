@@ -34,10 +34,16 @@ func (o *SingleOption) newpkgname() (string, error) {
 		return o.NewPkgName, nil
 	}
 	// Use the current working directory package name.
+	if o.Log != nil {
+		log.Println("Finding local package name")
+	}
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadFiles}, ".")
 	if len(pkgs) > 0 {
 		// Be optimistic: even if the local package has errors, return its name.
 		if p := pkgs[0].Name; p != "" {
+			if o.Log != nil {
+				log.Printf("Local package name is %s\n", p)
+			}
 			return p, nil
 		}
 	}
@@ -75,11 +81,17 @@ func Single(out io.Writer, o SingleOption) error {
 	// Rename types in all packages.
 	objsToUpdate := map[types.Object]bool{}
 	for _, pkg := range pkgs {
+		if o.Log != nil {
+			log.Printf("Renaming types in %v\n", pkg)
+		}
 		renamePkg(pkg, o.Types, o.RmTypes, objsToUpdate)
 	}
 
 	// Prefix global declarations in all packages.
 	for _, pkg := range pkgs {
+		if o.Log != nil {
+			log.Printf("Prefixing types in %v\n", pkg)
+		}
 		prefixPkg(pkg, o.prefix(pkg), objsToUpdate)
 	}
 
@@ -95,6 +107,9 @@ func Single(out io.Writer, o SingleOption) error {
 	}
 	//TODO test package is missing?
 	for _, pkg := range pkgs {
+		if o.Log != nil {
+			log.Printf("Writing package %v\n", pkg)
+		}
 		for _, f := range pkg.Syntax {
 		next:
 			for _, decl := range f.Decls {
