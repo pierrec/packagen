@@ -70,6 +70,7 @@ func (s Int32s) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 The generated file `int32s_gen.go` contains:
 ```
 //go:generate go run github/pierrec/packagen/cmd/packagen single -o int32s_gen.go -prefix Int32 -mvtype Numbers=Int32s -rmtype Numbers domain/user/sort
+
 package myapp
 
 // Note that the package name has been set automatically.
