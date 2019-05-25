@@ -66,6 +66,7 @@ func (o *SingleOption) prefix(pkg *packages.Package) string {
 // Single packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
 func Single(out io.Writer, o SingleOption) error {
 	if o.Log != nil {
+		o.Log.Printf("Options: %#v\n", o)
 		o.Log.Printf("Loading packages with %v\n", o.Patterns)
 	}
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, o.Patterns...)
@@ -138,7 +139,7 @@ func Single(out io.Writer, o SingleOption) error {
 								// Check without the added prefix...
 								name := strings.TrimPrefix(id.Name, o.prefix(pkg))
 
-								if _, ok := o.RmConst[id.Name]; ok {
+								if _, ok := o.RmConst[name]; ok {
 									// Constant to be removed.
 									id.Name = "_"
 									if o.Log != nil {
