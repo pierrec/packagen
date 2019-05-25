@@ -50,12 +50,17 @@ func init() {
 				fmt.Sprintf("list of integer constants to be updated: constname%cinteger[%c ...]",
 					typeSeparator, listSeparator))
 
+			var rmconst string
+			set.StringVar(&rmconst, "rmconst", "",
+				fmt.Sprintf("list of constants to be discarded: constname[%c ...]",
+					typeSeparator))
+
 			var outfile string
 			set.StringVar(&outfile, "o", "", "write output to `file` (default=standard output)")
 
 			return func(args ...string) (_ int, err error) {
 				o.Patterns = args
-				o.RmTypes = buildRemove(rmtype)
+				o.RmTypes = toMap(rmtype)
 				o.Types, err = toMapString(mvtype)
 				if err != nil {
 					return 0, err
@@ -69,6 +74,7 @@ func init() {
 				}
 
 				o.Const, err = toMapInt(upconst)
+				o.RmConst = toMap(rmconst)
 				if err != nil {
 					return 0, err
 				}
@@ -108,7 +114,7 @@ func init() {
 	})
 }
 
-func buildRemove(src string) map[string]struct{} {
+func toMap(src string) map[string]struct{} {
 	m := map[string]struct{}{}
 	if src != "" {
 		for _, s := range strings.Split(src, string(listSeparator)) {

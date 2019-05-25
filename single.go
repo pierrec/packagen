@@ -24,8 +24,9 @@ type SingleOption struct {
 	NewPkgName string              // Name of the resulting package (default=current working dir package)
 	Prefix     string              // Prefix for the global identifiers (default=packageName_)
 	Types      map[string]string   // Map the names of the types to be renamed to their new one
-	Const      map[string]int      // Values for const to be updated
 	RmTypes    map[string]struct{} // Named types to be removed
+	Const      map[string]int      // Values for const to be updated
+	RmConst    map[string]struct{} // Constants to be removed
 }
 
 // newpkgname returns the set value or a default one.
@@ -120,7 +121,8 @@ func Single(out io.Writer, o SingleOption) error {
 						// Skip imports.
 						continue
 					case token.CONST:
-						if len(o.Const) == 0 {
+						// Constants to be updated or removed.
+						if len(o.Const) == 0 || len(o.RmConst) == 0 {
 							break
 						}
 						for _, spec := range decl.Specs {
@@ -133,13 +135,19 @@ func Single(out io.Writer, o SingleOption) error {
 								continue
 							}
 							for i, id := range v.Names {
+								// Check without the added prefix...
+								name := strings.TrimPrefix(id.Name, o.prefix(pkg))
+								if _, ok := o.RmConst[id.Name]; ok {
+									// Constant to be removed.
+									id.Name = "_"
+									continue
+								}
 								lit, ok := v.Values[i].(*ast.BasicLit)
 								if !ok {
 									continue
 								}
-								// Check without the added prefix...
-								name := strings.TrimPrefix(id.Name, o.prefix(pkg))
 								if n, ok := o.Const[name]; ok {
+									// Update the constant value.
 									lit.Value = strconv.Itoa(n)
 								}
 							}
