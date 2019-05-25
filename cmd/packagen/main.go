@@ -17,7 +17,7 @@ func newLogger() *log.Logger {
 	if !verbose {
 		return nil
 	}
-	return log.New(os.Stderr, "packagen", 0)
+	return log.New(os.Stderr, "packagen ", log.LstdFlags)
 }
 
 func main() {

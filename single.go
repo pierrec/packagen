@@ -36,14 +36,14 @@ func (o *SingleOption) newpkgname() (string, error) {
 	}
 	// Use the current working directory package name.
 	if o.Log != nil {
-		log.Println("Finding local package name")
+		o.Log.Println("Finding local package name")
 	}
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadFiles}, ".")
 	if len(pkgs) > 0 {
 		// Be optimistic: even if the local package has errors, return its name.
 		if p := pkgs[0].Name; p != "" {
 			if o.Log != nil {
-				log.Printf("Local package name is %s\n", p)
+				o.Log.Printf("Local package name is %s\n", p)
 			}
 			return p, nil
 		}
@@ -66,7 +66,7 @@ func (o *SingleOption) prefix(pkg *packages.Package) string {
 // Single packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
 func Single(out io.Writer, o SingleOption) error {
 	if o.Log != nil {
-		log.Printf("Loading packages with %v\n", o.Patterns)
+		o.Log.Printf("Loading packages with %v\n", o.Patterns)
 	}
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, o.Patterns...)
 	if err != nil {
@@ -76,14 +76,14 @@ func Single(out io.Writer, o SingleOption) error {
 		return fmt.Errorf("too many errors while loading package %s", o.Patterns)
 	}
 	if o.Log != nil {
-		log.Printf("Found %d packages: %v\n", len(pkgs), pkgs)
+		o.Log.Printf("Found %d packages: %v\n", len(pkgs), pkgs)
 	}
 
 	// Rename types in all packages.
 	objsToUpdate := map[types.Object]bool{}
 	for _, pkg := range pkgs {
 		if o.Log != nil {
-			log.Printf("Renaming types in %v\n", pkg)
+			o.Log.Printf("Renaming types in %v\n", pkg)
 		}
 		renamePkg(pkg, o.Types, o.RmTypes, objsToUpdate)
 	}
@@ -91,7 +91,7 @@ func Single(out io.Writer, o SingleOption) error {
 	// Prefix global declarations in all packages.
 	for _, pkg := range pkgs {
 		if o.Log != nil {
-			log.Printf("Prefixing types in %v\n", pkg)
+			o.Log.Printf("Prefixing types in %v\n", pkg)
 		}
 		prefixPkg(pkg, o.prefix(pkg), objsToUpdate)
 	}
@@ -109,7 +109,7 @@ func Single(out io.Writer, o SingleOption) error {
 	//TODO test package is missing?
 	for _, pkg := range pkgs {
 		if o.Log != nil {
-			log.Printf("Writing package %v\n", pkg)
+			o.Log.Printf("Writing package %v\n", pkg)
 		}
 		for _, f := range pkg.Syntax {
 		next:
@@ -122,7 +122,7 @@ func Single(out io.Writer, o SingleOption) error {
 						continue
 					case token.CONST:
 						// Constants to be updated or removed.
-						if len(o.Const) == 0 || len(o.RmConst) == 0 {
+						if len(o.Const) == 0 && len(o.RmConst) == 0 {
 							break
 						}
 						for _, spec := range decl.Specs {
@@ -137,9 +137,13 @@ func Single(out io.Writer, o SingleOption) error {
 							for i, id := range v.Names {
 								// Check without the added prefix...
 								name := strings.TrimPrefix(id.Name, o.prefix(pkg))
+
 								if _, ok := o.RmConst[id.Name]; ok {
 									// Constant to be removed.
 									id.Name = "_"
+									if o.Log != nil {
+										o.Log.Printf("const %s discarded", name)
+									}
 									continue
 								}
 								lit, ok := v.Values[i].(*ast.BasicLit)
@@ -148,7 +152,11 @@ func Single(out io.Writer, o SingleOption) error {
 								}
 								if n, ok := o.Const[name]; ok {
 									// Update the constant value.
+									val := lit.Value
 									lit.Value = strconv.Itoa(n)
+									if o.Log != nil {
+										o.Log.Printf("const %s value updated from %s to %s", name, val, lit.Value)
+									}
 								}
 							}
 						}
@@ -163,6 +171,9 @@ func Single(out io.Writer, o SingleOption) error {
 							}
 							if _, ok := o.RmTypes[t.Name.Name]; ok {
 								// Type to be removed.
+								if o.Log != nil {
+									o.Log.Printf("type %s discarded", t.Name.Name)
+								}
 								continue next
 							}
 						}
@@ -174,6 +185,9 @@ func Single(out io.Writer, o SingleOption) error {
 					if t, ok := decl.Recv.List[0].Type.(*ast.Ident); ok {
 						if _, ok := o.RmTypes[t.Name]; ok {
 							// Type to be removed.
+							if o.Log != nil {
+								o.Log.Printf("method for type %s discarded", t.Name)
+							}
 							continue next
 						}
 					}
@@ -192,7 +206,7 @@ func Single(out io.Writer, o SingleOption) error {
 
 	// Resolved imports and format the resulting code.
 	if o.Log != nil {
-		log.Printf("Resolving imports\n")
+		o.Log.Printf("Resolving imports\n")
 	}
 	code, err := imports.Process("", buf.Bytes(), nil)
 	if err != nil {
