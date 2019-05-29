@@ -10,6 +10,9 @@ import (
 func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]struct{}, objsToUpdate map[types.Object]bool) {
 	info := pkg.TypesInfo
 	for id, obj := range info.Defs {
+		if _, ok := ignore[id.Name]; ok {
+			objsToUpdate[obj] = false
+		}
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
 			if _, ok := ignore[id.Name]; !ok {
@@ -19,6 +22,9 @@ func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string
 		}
 	}
 	for id, obj := range info.Uses {
+		if _, ok := ignore[id.Name]; ok {
+			objsToUpdate[obj] = false
+		}
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
 			id.Name = newname
