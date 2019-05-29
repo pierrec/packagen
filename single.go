@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"strconv"
-	"strings"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
@@ -80,13 +79,33 @@ func Single(out io.Writer, o SingleOption) error {
 		o.Log.Printf("Found %d packages: %v\n", len(pkgs), pkgs)
 	}
 
+	// Build the list of identifiers NOT to be renamed:
+	// - renamed types
+	// - removed constants
+	// - removed types
+	ignore := make(map[string]struct{})
+	for src, tgt := range o.Types {
+		if _, ok := o.RmTypes[src]; ok {
+			// Make sure that renamed types that need to be removed are also in the rm list.
+			o.RmTypes[tgt] = struct{}{}
+		}
+	}
+	for src := range o.RmConst {
+		ignore[src] = struct{}{}
+	}
+	for src := range o.RmTypes {
+		ignore[src] = struct{}{}
+	}
+	if o.Log != nil {
+		o.Log.Printf("No prefix: %v", keysOf(ignore))
+	}
 	// Rename types in all packages.
 	objsToUpdate := map[types.Object]bool{}
 	for _, pkg := range pkgs {
 		if o.Log != nil {
 			o.Log.Printf("Renaming types in %v\n", pkg)
 		}
-		renamePkg(pkg, o.Types, o.RmTypes, objsToUpdate)
+		renamePkg(pkg, o.Types, ignore, objsToUpdate)
 	}
 
 	// Prefix global declarations in all packages.
@@ -131,19 +150,40 @@ func Single(out io.Writer, o SingleOption) error {
 							if !ok {
 								continue
 							}
+							if ident, ok := v.Type.(*ast.Ident); ok {
+								// Typed constant: remove if its type is to be removed.
+								name := ident.Name
+								if _, ok := o.RmTypes[name]; ok {
+									if o.Log != nil {
+										o.Log.Printf("const of type %s discarded", name)
+									}
+									continue next
+								}
+							}
 							if len(v.Values) == 0 {
 								// initial values; or nil
 								continue
 							}
-							for i, id := range v.Names {
-								// Check without the added prefix...
-								name := strings.TrimPrefix(id.Name, o.prefix(pkg))
-
+							// Do not print out the constant if it is defined standalone.
+							if len(v.Names) == 1 {
+								name := v.Names[0].Name
 								if _, ok := o.RmConst[name]; ok {
-									// Constant to be removed.
-									id.Name = "_"
+									// Constant to be completely removed.
 									if o.Log != nil {
 										o.Log.Printf("const %s discarded", name)
+									}
+									continue next
+								}
+								continue
+							}
+							// If more than one constant, ignore its line (might be part of iota?).
+							for i, id := range v.Names {
+								name := id.Name
+								if _, ok := o.RmConst[name]; ok {
+									// Constant to be ignored.
+									id.Name = "_"
+									if o.Log != nil {
+										o.Log.Printf("const %s ignored", name)
 									}
 									continue
 								}
@@ -170,7 +210,8 @@ func Single(out io.Writer, o SingleOption) error {
 							if !ok {
 								continue
 							}
-							if _, ok := o.RmTypes[t.Name.Name]; ok {
+							name := t.Name.Name
+							if _, ok := o.RmTypes[name]; ok {
 								// Type to be removed.
 								if o.Log != nil {
 									o.Log.Printf("type %s discarded", t.Name.Name)
@@ -184,10 +225,11 @@ func Single(out io.Writer, o SingleOption) error {
 						break
 					}
 					if t, ok := decl.Recv.List[0].Type.(*ast.Ident); ok {
-						if _, ok := o.RmTypes[t.Name]; ok {
+						name := t.Name
+						if _, ok := o.RmTypes[name]; ok {
 							// Type to be removed.
 							if o.Log != nil {
-								o.Log.Printf("method for type %s discarded", t.Name)
+								o.Log.Printf("method for type %s discarded", name)
 							}
 							continue next
 						}
@@ -205,7 +247,7 @@ func Single(out io.Writer, o SingleOption) error {
 		}
 	}
 
-	// Resolved imports and format the resulting code.
+	// Resolve imports and format the resulting code.
 	if o.Log != nil {
 		o.Log.Printf("Resolving imports\n")
 	}

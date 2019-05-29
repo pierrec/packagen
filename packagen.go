@@ -2,16 +2,17 @@ package packagen
 
 import (
 	"go/types"
+
 	"golang.org/x/tools/go/packages"
 )
 
 // renamePkg renames all used type names with the ones in names for the given package.
-func renamePkg(pkg *packages.Package, names map[string]string, rmnames map[string]struct{}, objsToUpdate map[types.Object]bool) {
+func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]struct{}, objsToUpdate map[types.Object]bool) {
 	info := pkg.TypesInfo
 	for id, obj := range info.Defs {
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
-			if _, ok := rmnames[id.Name]; !ok {
+			if _, ok := ignore[id.Name]; !ok {
 				// Exclude types to be removed.
 				id.Name = newname
 			}
@@ -73,4 +74,12 @@ func prefixPkg(pkg *packages.Package, prefix string, objsToUpdate map[types.Obje
 			id.Name = prefix + obj.Name()
 		}
 	}
+}
+
+func keysOf(m map[string]struct{}) []string {
+	s := make([]string, 0, len(m))
+	for k := range m {
+		s = append(s, k)
+	}
+	return s
 }

@@ -66,13 +66,6 @@ func init() {
 					return 0, err
 				}
 
-				// Make sure that renamed types that need to be removed are also in the rm list.
-				for src, tgt := range o.Types {
-					if _, ok := o.RmTypes[src]; ok {
-						o.RmTypes[tgt] = struct{}{}
-					}
-				}
-
 				o.Const, err = toMapInt(upconst)
 				o.RmConst = toMap(rmconst)
 				if err != nil {
