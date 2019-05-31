@@ -142,7 +142,7 @@ func Single(out io.Writer, o SingleOption) error {
 						continue
 					case token.CONST:
 						// Constants to be updated or removed.
-						if len(o.Const) == 0 && len(o.RmConst) == 0 {
+						if len(o.Const) == 0 && len(o.RmConst) == 0 && len(o.RmTypes) == 0 {
 							break
 						}
 						for _, spec := range decl.Specs {
