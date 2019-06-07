@@ -107,11 +107,11 @@ func init() {
 	})
 }
 
-func toMap(src string) map[string]struct{} {
-	m := map[string]struct{}{}
+func toMap(src string) map[string]bool {
+	m := map[string]bool{}
 	if src != "" {
 		for _, s := range strings.Split(src, string(listSeparator)) {
-			m[s] = struct{}{}
+			m[s] = true
 		}
 	}
 	return m
