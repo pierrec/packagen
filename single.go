@@ -33,24 +33,7 @@ func (o *SingleOption) newpkgname() (string, error) {
 	if o.NewPkgName != "" {
 		return o.NewPkgName, nil
 	}
-	// Use the current working directory package name.
-	if o.Log != nil {
-		o.Log.Println("Finding local package name")
-	}
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadFiles}, ".")
-	if len(pkgs) > 0 {
-		// Be optimistic: even if the local package has errors, return its name.
-		if p := pkgs[0].Name; p != "" {
-			if o.Log != nil {
-				o.Log.Printf("Local package name is %s\n", p)
-			}
-			return p, nil
-		}
-	}
-	if err == nil {
-		err = fmt.Errorf("cannot define new package name")
-	}
-	return "", err
+	return localPkgName()
 }
 
 // prefix returns the set value or a default one.
@@ -68,7 +51,7 @@ func Single(out io.Writer, o SingleOption) error {
 		o.Log.Printf("Options: %#v\n", o)
 		o.Log.Printf("Loading packages with %v\n", o.Patterns)
 	}
-	pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, o.Patterns...)
+	pkgs, err := loadPkg(o.Patterns...)
 	if err != nil {
 		return err
 	}

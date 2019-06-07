@@ -1,8 +1,11 @@
 package packagen
 
 import (
+	"fmt"
 	"go/types"
+	"strings"
 
+	"github.com/pierrec/packagen/internal/par"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -88,4 +91,39 @@ func keysOf(m map[string]struct{}) []string {
 		s = append(s, k)
 	}
 	return s
+}
+
+// localPkgName attempts to determine the name of the package in the current directory.
+// If any non empty name is found, it is used even in case of an error while loading it.
+func localPkgName() (string, error) {
+	// Use the current working directory package name.
+	pkgs, err := loadPkg(".")
+	if len(pkgs) > 0 {
+		// Be optimistic: even if the local package has errors, return its name.
+		if p := pkgs[0].Name; p != "" {
+			return p, nil
+		}
+	}
+	if err != nil {
+		return "", err
+	}
+	return "", fmt.Errorf("cannot define new package name")
+}
+
+// Cache the results of packages.Load as getting them is expensive.
+var pkgCache par.Cache
+
+// loadPkg loads the packages matching the patterns, as per golang.org/x/tools/go/packages.Load().
+// The result is cached and returned upon subsequent calls.
+func loadPkg(patterns ...string) ([]*packages.Package, error) {
+	type result struct {
+		pkgs []*packages.Package
+		err  error
+	}
+	key := strings.Join(patterns, " ")
+	res := pkgCache.Do(key, func() interface{} {
+		pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, patterns...)
+		return result{pkgs, err}
+	}).(result)
+	return res.pkgs, res.err
 }
