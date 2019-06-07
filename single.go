@@ -19,13 +19,13 @@ import (
 // SingleOption defines the options for the Single processor.
 type SingleOption struct {
 	Log        *log.Logger
-	Patterns   []string            // Packages to be processed
-	NewPkgName string              // Name of the resulting package (default=current working dir package)
-	Prefix     string              // Prefix for the global identifiers (default=packageName_)
-	Types      map[string]string   // Map the names of the types to be renamed to their new one
-	RmTypes    map[string]struct{} // Named types to be removed
-	Const      map[string]int      // Values for const to be updated
-	RmConst    map[string]struct{} // Constants to be removed
+	Patterns   []string          // Packages to be processed
+	NewPkgName string            // Name of the resulting package (default=current working dir package)
+	Prefix     string            // Prefix for the global identifiers (default=packageName_)
+	Types      map[string]string // Map the names of the types to be renamed to their new one
+	RmTypes    map[string]bool   // Named types to be removed
+	Const      map[string]int    // Values for const to be updated
+	RmConst    map[string]bool   // Constants to be removed
 }
 
 // newpkgname returns the set value or a default one.
@@ -66,18 +66,18 @@ func Single(out io.Writer, o SingleOption) error {
 	// - renamed types
 	// - removed constants
 	// - removed types
-	ignore := make(map[string]struct{})
+	ignore := make(map[string]bool)
 	for src, tgt := range o.Types {
 		if _, ok := o.RmTypes[src]; ok {
 			// Make sure that renamed types that need to be removed are also in the rm list.
-			o.RmTypes[tgt] = struct{}{}
+			o.RmTypes[tgt] = true
 		}
 	}
 	for src := range o.RmConst {
-		ignore[src] = struct{}{}
+		ignore[src] = true
 	}
 	for src := range o.RmTypes {
-		ignore[src] = struct{}{}
+		ignore[src] = true
 	}
 	if o.Log != nil {
 		o.Log.Printf("No prefix: %v", keysOf(ignore))

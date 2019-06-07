@@ -10,7 +10,7 @@ import (
 )
 
 // renamePkg renames all used type names with the ones in names for the given package.
-func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]struct{}, objsToUpdate map[types.Object]bool) {
+func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]bool, objsToUpdate map[types.Object]bool) {
 	info := pkg.TypesInfo
 	for id, obj := range info.Defs {
 		if _, ok := ignore[id.Name]; ok {
@@ -18,14 +18,14 @@ func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string
 		}
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
-			if _, ok := ignore[id.Name]; !ok {
+			if !ignore[id.Name] {
 				// Exclude types to be removed.
 				id.Name = newname
 			}
 		}
 	}
 	for id, obj := range info.Uses {
-		if _, ok := ignore[id.Name]; ok {
+		if !ignore[id.Name] {
 			objsToUpdate[obj] = false
 		}
 		if newname, ok := names[id.Name]; ok {
@@ -85,7 +85,7 @@ func prefixPkg(pkg *packages.Package, prefix string, objsToUpdate map[types.Obje
 	}
 }
 
-func keysOf(m map[string]struct{}) []string {
+func keysOf(m map[string]bool) []string {
 	s := make([]string, 0, len(m))
 	for k := range m {
 		s = append(s, k)
