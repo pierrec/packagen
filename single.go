@@ -18,20 +18,20 @@ import (
 
 // SingleOption defines the options for the Single processor.
 type SingleOption struct {
-	Log        *log.Logger
-	Patterns   []string          // Packages to be processed
-	NewPkgName string            // Name of the resulting package (default=current working dir package)
-	Prefix     string            // Prefix for the global identifiers (default=packageName_)
-	Types      map[string]string // Map the names of the types to be renamed to their new one
-	RmTypes    map[string]bool   // Named types to be removed
-	Const      map[string]int    // Values for const to be updated
-	RmConst    map[string]bool   // Constants to be removed
+	Log     *log.Logger
+	Pkg     string            // Pkg to be processed
+	NewPkg  string            // Name of the resulting package (default=current working dir package)
+	Prefix  string            // Prefix for the global identifiers (default=packageName_)
+	Types   map[string]string // Map the names of the types to be renamed to their new one
+	RmTypes map[string]bool   // Named types to be removed
+	Const   map[string]int    // Values for const to be updated
+	RmConst map[string]bool   // Constants to be removed
 }
 
 // newpkgname returns the set value or a default one.
 func (o *SingleOption) newpkgname() (string, error) {
-	if o.NewPkgName != "" {
-		return o.NewPkgName, nil
+	if o.NewPkg != "" {
+		return o.NewPkg, nil
 	}
 	return localPkgName()
 }
@@ -49,14 +49,14 @@ func (o *SingleOption) prefix(pkg *packages.Package) string {
 func Single(out io.Writer, o SingleOption) error {
 	if o.Log != nil {
 		o.Log.Printf("Options: %#v\n", o)
-		o.Log.Printf("Loading packages with %v\n", o.Patterns)
+		o.Log.Printf("Loading packages with %v\n", o.Pkg)
 	}
-	pkgs, err := loadPkg(o.Patterns...)
+	pkgs, err := loadPkg(o.Pkg)
 	if err != nil {
 		return err
 	}
 	if packages.PrintErrors(pkgs) > 0 {
-		return fmt.Errorf("too many errors while loading package %s", o.Patterns)
+		return fmt.Errorf("too many errors while loading package %s", o.Pkg)
 	}
 	if o.Log != nil {
 		o.Log.Printf("Found %d packages: %v\n", len(pkgs), pkgs)
@@ -68,7 +68,7 @@ func Single(out io.Writer, o SingleOption) error {
 	// - removed types
 	ignore := make(map[string]bool)
 	for src, tgt := range o.Types {
-		if _, ok := o.RmTypes[src]; ok {
+		if o.RmTypes[src] {
 			// Make sure that renamed types that need to be removed are also in the rm list.
 			o.RmTypes[tgt] = true
 		}
@@ -83,12 +83,18 @@ func Single(out io.Writer, o SingleOption) error {
 		o.Log.Printf("No prefix: %v", keysOf(ignore))
 	}
 	// Rename types in all packages.
+	renamed := map[*ast.Ident]string{}
 	objsToUpdate := map[types.Object]bool{}
 	for _, pkg := range pkgs {
 		if o.Log != nil {
 			o.Log.Printf("Renaming types in %v\n", pkg)
 		}
-		renamePkg(pkg, o.Types, ignore, objsToUpdate)
+		renamePkg(pkg, o.Types, ignore, objsToUpdate, renamed)
+	}
+	if o.Log != nil {
+		for id, name := range renamed {
+			o.Log.Println("renamed:", name, "=>", id.Name)
+		}
 	}
 
 	// Prefix global declarations in all packages.
@@ -96,8 +102,14 @@ func Single(out io.Writer, o SingleOption) error {
 		if o.Log != nil {
 			o.Log.Printf("Prefixing types in %v\n", pkg)
 		}
-		prefixPkg(pkg, o.prefix(pkg), objsToUpdate)
+		prefixPkg(pkg, o.prefix(pkg), objsToUpdate, renamed)
 	}
+	// Restore the identifier names.
+	defer func() {
+		for id, name := range renamed {
+			id.Name = name
+		}
+	}()
 
 	// Build the single file package.
 	var buf bytes.Buffer
@@ -135,8 +147,7 @@ func Single(out io.Writer, o SingleOption) error {
 							}
 							if ident, ok := v.Type.(*ast.Ident); ok {
 								// Typed constant: remove if its type is to be removed.
-								name := ident.Name
-								if _, ok := o.RmTypes[name]; ok {
+								if name := ident.Name; o.RmTypes[name] {
 									if o.Log != nil {
 										o.Log.Printf("const of type %s discarded", name)
 									}
@@ -149,8 +160,7 @@ func Single(out io.Writer, o SingleOption) error {
 							}
 							// Do not print out the constant if it is defined standalone.
 							if len(v.Names) == 1 {
-								name := v.Names[0].Name
-								if _, ok := o.RmConst[name]; ok {
+								if name := v.Names[0].Name; o.RmConst[name] {
 									// Constant to be completely removed.
 									if o.Log != nil {
 										o.Log.Printf("const %s discarded", name)
@@ -162,7 +172,7 @@ func Single(out io.Writer, o SingleOption) error {
 							// If more than one constant, ignore its line (might be part of iota?).
 							for i, id := range v.Names {
 								name := id.Name
-								if _, ok := o.RmConst[name]; ok {
+								if o.RmConst[name] {
 									// Constant to be ignored.
 									id.Name = "_"
 									if o.Log != nil {
@@ -193,11 +203,10 @@ func Single(out io.Writer, o SingleOption) error {
 							if !ok {
 								continue
 							}
-							name := t.Name.Name
-							if _, ok := o.RmTypes[name]; ok {
+							if name := t.Name.Name; o.RmTypes[name] {
 								// Type to be removed.
 								if o.Log != nil {
-									o.Log.Printf("type %s discarded", t.Name.Name)
+									o.Log.Printf("type %s discarded", name)
 								}
 								continue next
 							}
@@ -207,15 +216,22 @@ func Single(out io.Writer, o SingleOption) error {
 					if len(o.RmTypes) == 0 || decl.Recv == nil {
 						break
 					}
-					if t, ok := decl.Recv.List[0].Type.(*ast.Ident); ok {
-						name := t.Name
-						if _, ok := o.RmTypes[name]; ok {
-							// Type to be removed.
-							if o.Log != nil {
-								o.Log.Printf("method for type %s discarded", name)
-							}
-							continue next
+					var id *ast.Ident
+					switch t := decl.Recv.List[0].Type.(type) {
+					case *ast.StarExpr:
+						id = t.X.(*ast.Ident)
+					case *ast.Ident:
+						id = t
+					}
+					if id == nil {
+						break
+					}
+					if name := id.Name; o.RmTypes[name] {
+						// Type to be removed.
+						if o.Log != nil {
+							o.Log.Printf("method for type %s discarded", name)
 						}
+						continue next
 					}
 				}
 				err := format.Node(&buf, pkg.Fset, &printer.CommentedNode{Node: decl})

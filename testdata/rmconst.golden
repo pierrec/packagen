@@ -1,0 +1,33 @@
+package rmconst
+
+type (
+	prefixA string
+	prefixL = prefixA
+)
+
+const (
+	prefixC  = prefixL("abc")
+	prefixCA = prefixA("xyz")
+)
+
+type prefixS struct {
+	V prefixA
+}
+
+func (s prefixS) String() string {
+	return string(s.V)
+}
+func (s *prefixS) GoString() string {
+	return string(s.V)
+}
+
+type prefixAS struct {
+	V prefixS
+}
+
+func (as prefixAS) String() string {
+	return as.V.String()
+}
+func (as *prefixAS) GoString() string {
+	return as.V.String()
+}

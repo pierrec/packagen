@@ -2,6 +2,7 @@ package packagen
 
 import (
 	"fmt"
+	"go/ast"
 	"go/types"
 	"strings"
 
@@ -10,33 +11,39 @@ import (
 )
 
 // renamePkg renames all used type names with the ones in names for the given package.
-func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]bool, objsToUpdate map[types.Object]bool) {
+func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]bool,
+	objsToUpdate map[types.Object]bool, renamed map[*ast.Ident]string) {
 	info := pkg.TypesInfo
 	for id, obj := range info.Defs {
-		if _, ok := ignore[id.Name]; ok {
+		if ignore[id.Name] {
 			objsToUpdate[obj] = false
 		}
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
 			if !ignore[id.Name] {
 				// Exclude types to be removed.
+				renamed[id] = id.Name
 				id.Name = newname
 			}
 		}
 	}
 	for id, obj := range info.Uses {
-		if !ignore[id.Name] {
+		if ignore[id.Name] {
 			objsToUpdate[obj] = false
 		}
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
+			//if !ignore[id.Name] {
+			renamed[id] = id.Name
 			id.Name = newname
+			//}
 		}
 	}
 }
 
 // prefixPkg prefixes all global identifiers (types, variables, functions).
-func prefixPkg(pkg *packages.Package, prefix string, objsToUpdate map[types.Object]bool) {
+func prefixPkg(pkg *packages.Package, prefix string,
+	objsToUpdate map[types.Object]bool, renamed map[*ast.Ident]string) {
 	info := pkg.TypesInfo
 	// Contains all the objects to be renamed.
 	// Copied from https://github.com/golang/tools/blob/master/cmd/bundle/main.go:210
@@ -75,11 +82,13 @@ func prefixPkg(pkg *packages.Package, prefix string, objsToUpdate map[types.Obje
 	// Prefix the objects.
 	for id, obj := range info.Defs {
 		if objsToUpdate[obj] {
+			renamed[id] = id.Name
 			id.Name = prefix + obj.Name()
 		}
 	}
 	for id, obj := range info.Uses {
 		if objsToUpdate[obj] {
+			renamed[id] = id.Name
 			id.Name = prefix + obj.Name()
 		}
 	}

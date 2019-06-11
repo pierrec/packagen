@@ -1,0 +1,38 @@
+package mvtypes
+
+type (
+	prefixA string
+	prefixL = prefixA
+)
+
+const (
+	prefixV = iota
+	prefixV1
+	prefixV2
+)
+const (
+	prefixC  = prefixL("abc")
+	prefixCA = prefixA("xyz")
+)
+
+type X struct {
+	V prefixA
+}
+
+func (s X) String() string {
+	return string(s.V)
+}
+func (s *X) GoString() string {
+	return string(s.V)
+}
+
+type prefixAS struct {
+	V X
+}
+
+func (as prefixAS) String() string {
+	return as.V.String()
+}
+func (as *prefixAS) GoString() string {
+	return as.V.String()
+}

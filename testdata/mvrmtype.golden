@@ -1,0 +1,33 @@
+package mvrmtype
+
+const (
+	prefixV = iota
+	prefixV1
+	prefixV2
+)
+const (
+	prefixC  = prefixL("abc")
+	prefixCA = A("xyz")
+)
+
+type prefixS struct {
+	V A
+}
+
+func (s prefixS) String() string {
+	return string(s.V)
+}
+func (s *prefixS) GoString() string {
+	return string(s.V)
+}
+
+type prefixAS struct {
+	V prefixS
+}
+
+func (as prefixAS) String() string {
+	return as.V.String()
+}
+func (as *prefixAS) GoString() string {
+	return as.V.String()
+}

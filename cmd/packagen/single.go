@@ -30,7 +30,7 @@ func init() {
 			var nogen bool
 			set.BoolVar(&nogen, "nogen", false, "do not add the generate directive")
 
-			set.StringVar(&o.NewPkgName, "newpkg", "",
+			set.StringVar(&o.NewPkg, "newpkg", "",
 				"new package name (default=current working dir package)")
 			set.StringVar(&o.Prefix, "prefix", "",
 				"prefix used to rename declarations (default=packageName_)")
@@ -59,7 +59,13 @@ func init() {
 			set.StringVar(&outfile, "o", "", "write output to `file` (default=standard output)")
 
 			return func(args ...string) (_ int, err error) {
-				o.Patterns = args
+				if len(args) == 0 {
+					return 0, fmt.Errorf("missing package name")
+				}
+				if len(args) > 1 {
+					return 0, fmt.Errorf("too many packages")
+				}
+				o.Pkg = args[0]
 				o.RmTypes = toMap(rmtype)
 				o.Types, err = toMapString(mvtype)
 				if err != nil {
