@@ -19,7 +19,7 @@ import (
 // SingleOption defines the options for the Single processor.
 type SingleOption struct {
 	Log     *log.Logger
-	Pkg     string            // Pkg to be processed
+	Pkg     string            // Package to be processed
 	NewPkg  string            // Name of the resulting package (default=current working dir package)
 	Prefix  string            // Prefix for the global identifiers (default=packageName_)
 	Types   map[string]string // Map the names of the types to be renamed to their new one

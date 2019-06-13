@@ -146,7 +146,13 @@ func loadPkg(patterns ...string) ([]*packages.Package, error) {
 	}
 	key := strings.Join(patterns, " ")
 	res := pkgCache.Do(key, func() interface{} {
-		pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, patterns...)
+		// Only declare the minimum load modes.
+		mode := packages.NeedName |
+			packages.NeedImports | packages.NeedDeps |
+			packages.NeedTypes | packages.NeedTypesSizes |
+			packages.NeedSyntax | packages.NeedTypesInfo
+
+		pkgs, err := packages.Load(&packages.Config{Mode: mode}, patterns...)
 		return &result{pkgs, err}
 	}).(*result)
 	return res.pkgs, res.err
