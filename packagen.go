@@ -1,9 +1,11 @@
 package packagen
 
 import (
-	"fmt"
 	"go/ast"
+	"go/parser"
+	"go/token"
 	"go/types"
+	"os"
 	"strings"
 
 	"github.com/pierrec/packagen/internal/par"
@@ -102,21 +104,34 @@ func keysOf(m map[string]bool) []string {
 	return s
 }
 
+var localPkgNameCache par.Cache
+
 // localPkgName attempts to determine the name of the package in the current directory.
-// If any non empty name is found, it is used even in case of an error while loading it.
 func localPkgName() (string, error) {
-	// Use the current working directory package name.
-	pkgs, err := loadPkg(".")
-	if len(pkgs) > 0 {
-		// Be optimistic: even if the local package has errors, return its name.
-		if p := pkgs[0].Name; p != "" {
-			return p, nil
+	type result struct {
+		name string
+		err  error
+	}
+	if res, ok := localPkgNameCache.Get("").(*result); ok {
+		return res.name, res.err
+	}
+	res := localPkgNameCache.Do("", func() interface{} {
+		if gofile := os.Getenv("OSFILE"); gofile != "" {
+			// Fast path.
+			f, err := parser.ParseFile(token.NewFileSet(), gofile, nil, parser.PackageClauseOnly)
+			if err != nil {
+				return &result{err: err}
+			}
+			return &result{name: f.Name.Name}
 		}
-	}
-	if err != nil {
-		return "", err
-	}
-	return "", fmt.Errorf("cannot define new package name")
+		// Use the current working directory package name.
+		pkgs, err := loadPkg(".")
+		if err != nil {
+			return &result{err: err}
+		}
+		return &result{name: pkgs[0].Name}
+	}).(*result)
+	return res.name, res.err
 }
 
 // Cache the results of packages.Load as getting them is expensive.
@@ -132,7 +147,7 @@ func loadPkg(patterns ...string) ([]*packages.Package, error) {
 	key := strings.Join(patterns, " ")
 	res := pkgCache.Do(key, func() interface{} {
 		pkgs, err := packages.Load(&packages.Config{Mode: packages.LoadSyntax}, patterns...)
-		return result{pkgs, err}
-	}).(result)
+		return &result{pkgs, err}
+	}).(*result)
 	return res.pkgs, res.err
 }
