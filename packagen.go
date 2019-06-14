@@ -2,19 +2,14 @@ package packagen
 
 import (
 	"go/ast"
-	"go/parser"
-	"go/token"
 	"go/types"
-	"os"
-	"strings"
 
-	"github.com/pierrec/packagen/internal/par"
 	"golang.org/x/tools/go/packages"
 )
 
 // renamePkg renames all used type names with the ones in names for the given package.
 func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string]bool,
-	objsToUpdate map[types.Object]bool, renamed map[*ast.Ident]string) {
+	objsToUpdate map[types.Object]bool, renameID func(*ast.Ident, string)) {
 	info := pkg.TypesInfo
 	for id, obj := range info.Defs {
 		if ignore[id.Name] {
@@ -24,8 +19,7 @@ func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string
 			objsToUpdate[obj] = false
 			if !ignore[id.Name] {
 				// Exclude types to be removed.
-				renamed[id] = id.Name
-				id.Name = newname
+				renameID(id, newname)
 			}
 		}
 	}
@@ -35,17 +29,14 @@ func renamePkg(pkg *packages.Package, names map[string]string, ignore map[string
 		}
 		if newname, ok := names[id.Name]; ok {
 			objsToUpdate[obj] = false
-			//if !ignore[id.Name] {
-			renamed[id] = id.Name
-			id.Name = newname
-			//}
+			renameID(id, newname)
 		}
 	}
 }
 
 // prefixPkg prefixes all global identifiers (types, variables, functions).
 func prefixPkg(pkg *packages.Package, prefix string,
-	objsToUpdate map[types.Object]bool, renamed map[*ast.Ident]string) {
+	objsToUpdate map[types.Object]bool, renameID func(*ast.Ident, string)) {
 	info := pkg.TypesInfo
 	// Contains all the objects to be renamed.
 	// Copied from https://github.com/golang/tools/blob/master/cmd/bundle/main.go:210
@@ -84,14 +75,12 @@ func prefixPkg(pkg *packages.Package, prefix string,
 	// Prefix the objects.
 	for id, obj := range info.Defs {
 		if objsToUpdate[obj] {
-			renamed[id] = id.Name
-			id.Name = prefix + obj.Name()
+			renameID(id, prefix+obj.Name())
 		}
 	}
 	for id, obj := range info.Uses {
 		if objsToUpdate[obj] {
-			renamed[id] = id.Name
-			id.Name = prefix + obj.Name()
+			renameID(id, prefix+obj.Name())
 		}
 	}
 }
@@ -104,56 +93,17 @@ func keysOf(m map[string]bool) []string {
 	return s
 }
 
-var localPkgNameCache par.Cache
-
-// localPkgName attempts to determine the name of the package in the current directory.
-func localPkgName() (string, error) {
-	type result struct {
-		name string
-		err  error
-	}
-	if res, ok := localPkgNameCache.Get("").(*result); ok {
-		return res.name, res.err
-	}
-	res := localPkgNameCache.Do("", func() interface{} {
-		if gofile := os.Getenv("OSFILE"); gofile != "" {
-			// Fast path.
-			f, err := parser.ParseFile(token.NewFileSet(), gofile, nil, parser.PackageClauseOnly)
-			if err != nil {
-				return &result{err: err}
+// renamer is to be used when identifiers are renamed/prefixed etc in an ast tree.
+// It returns the function to be used for renaming and the handler to be called once
+// the use of the ast tree is complete, to restore the identifiers original name.
+func renamer() (rename func(*ast.Ident, string), done func()) {
+	m := map[*ast.Ident]string{}
+	return func(id *ast.Ident, name string) {
+			m[id] = id.Name
+			id.Name = name
+		}, func() {
+			for id, name := range m {
+				id.Name = name
 			}
-			return &result{name: f.Name.Name}
 		}
-		// Use the current working directory package name.
-		pkgs, err := loadPkg(".")
-		if err != nil {
-			return &result{err: err}
-		}
-		return &result{name: pkgs[0].Name}
-	}).(*result)
-	return res.name, res.err
-}
-
-// Cache the results of packages.Load as getting them is expensive.
-var pkgCache par.Cache
-
-// loadPkg loads the packages matching the patterns, as per golang.org/x/tools/go/packages.Load().
-// The result is cached and returned upon subsequent calls.
-func loadPkg(patterns ...string) ([]*packages.Package, error) {
-	type result struct {
-		pkgs []*packages.Package
-		err  error
-	}
-	key := strings.Join(patterns, " ")
-	res := pkgCache.Do(key, func() interface{} {
-		// Only declare the minimum load modes.
-		mode := packages.NeedName |
-			packages.NeedImports | packages.NeedDeps |
-			packages.NeedTypes | packages.NeedTypesSizes |
-			packages.NeedSyntax | packages.NeedTypesInfo
-
-		pkgs, err := packages.Load(&packages.Config{Mode: mode}, patterns...)
-		return &result{pkgs, err}
-	}).(*result)
-	return res.pkgs, res.err
 }

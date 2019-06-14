@@ -83,18 +83,15 @@ func Single(out io.Writer, o SingleOption) error {
 		o.Log.Printf("No prefix: %v", keysOf(ignore))
 	}
 	// Rename types in all packages.
-	renamed := map[*ast.Ident]string{}
+	renameID, renameDone := renamer()
+	defer renameDone()
+
 	objsToUpdate := map[types.Object]bool{}
 	for _, pkg := range pkgs {
 		if o.Log != nil {
 			o.Log.Printf("Renaming types in %v\n", pkg)
 		}
-		renamePkg(pkg, o.Types, ignore, objsToUpdate, renamed)
-	}
-	if o.Log != nil {
-		for id, name := range renamed {
-			o.Log.Println("renamed:", name, "=>", id.Name)
-		}
+		renamePkg(pkg, o.Types, ignore, objsToUpdate, renameID)
 	}
 
 	// Prefix global declarations in all packages.
@@ -102,14 +99,8 @@ func Single(out io.Writer, o SingleOption) error {
 		if o.Log != nil {
 			o.Log.Printf("Prefixing types in %v\n", pkg)
 		}
-		prefixPkg(pkg, o.prefix(pkg), objsToUpdate, renamed)
+		prefixPkg(pkg, o.prefix(pkg), objsToUpdate, renameID)
 	}
-	// Restore the identifier names.
-	defer func() {
-		for id, name := range renamed {
-			id.Name = name
-		}
-	}()
 
 	// Build the single file package.
 	var buf bytes.Buffer
