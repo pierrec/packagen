@@ -16,8 +16,8 @@ import (
 	"golang.org/x/tools/imports"
 )
 
-// SingleOption defines the options for the Single processor.
-type SingleOption struct {
+// BundleOption defines the options for the Bundle processor.
+type BundleOption struct {
 	Log     *log.Logger
 	Pkg     string            // Package to be processed
 	NewPkg  string            // Name of the resulting package (default=current working dir package)
@@ -29,7 +29,7 @@ type SingleOption struct {
 }
 
 // newpkgname returns the set value or a default one.
-func (o *SingleOption) newpkgname() (string, error) {
+func (o *BundleOption) newpkgname() (string, error) {
 	if o.NewPkg != "" {
 		return o.NewPkg, nil
 	}
@@ -37,7 +37,7 @@ func (o *SingleOption) newpkgname() (string, error) {
 }
 
 // prefix returns the set value or a default one.
-func (o *SingleOption) prefix(pkg *packages.Package) string {
+func (o *BundleOption) prefix(pkg *packages.Package) string {
 	if o.Prefix != "" {
 		return o.Prefix
 	}
@@ -45,8 +45,8 @@ func (o *SingleOption) prefix(pkg *packages.Package) string {
 	return pkg.Name + "_"
 }
 
-// Single packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
-func Single(out io.Writer, o SingleOption) error {
+// Bundle packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
+func Bundle(out io.Writer, o BundleOption) error {
 	if o.Log != nil {
 		o.Log.Printf("Options: %#v\n", o)
 		o.Log.Printf("Loading packages with %v\n", o.Pkg)

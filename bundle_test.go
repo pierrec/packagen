@@ -13,7 +13,7 @@ import (
 var update = flag.Bool("update", false, "update .golden files")
 
 func TestSingle(t *testing.T) {
-	for _, tc := range []SingleOption{
+	for _, tc := range []BundleOption{
 		{
 			Pkg:    "./testdata/single",
 			NewPkg: "mvtypes",
@@ -45,7 +45,7 @@ func TestSingle(t *testing.T) {
 			c := qt.New(t)
 
 			buf := new(bytes.Buffer)
-			err := Single(buf, tc)
+			err := Bundle(buf, tc)
 			c.Assert(err, qt.IsNil)
 
 			fname := filepath.Join("testdata", "single_"+tc.NewPkg+".golden")
