@@ -1,4 +1,4 @@
-package pkg
+package single
 
 type (
 	A string
