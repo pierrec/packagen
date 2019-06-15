@@ -1,4 +1,4 @@
-//go:generate go run github.com/pierrec/packagen/cmd/packagen -v single -nogen -o slice_int64.go -prefix Int64 -mvtype Item=Int64 -rmtype Item slice.go
+//go:generate go run github.com/pierrec/packagen/cmd/packagen -v bundle -nogen -o slice_int64.go -prefix Int64 -mvtype Item=Int64 -rmtype Item slice.go
 package slice
 
 type Int64 int64

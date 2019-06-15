@@ -1,4 +1,4 @@
-package single
+package bundle
 
 type (
 	A string

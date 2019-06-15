@@ -12,29 +12,29 @@ import (
 
 var update = flag.Bool("update", false, "update .golden files")
 
-func TestSingle(t *testing.T) {
+func TestBundle(t *testing.T) {
 	for _, tc := range []BundleOption{
 		{
-			Pkg:    "./testdata/single",
+			Pkg:    "./testdata/bundle",
 			NewPkg: "mvtypes",
 			Prefix: "prefix",
 			Types:  map[string]string{"S": "X"},
 		},
 		{
-			Pkg:     "./testdata/single",
+			Pkg:     "./testdata/bundle",
 			NewPkg:  "rmtypes",
 			Prefix:  "prefix",
 			RmTypes: map[string]bool{"S": true},
 		},
 		{
-			Pkg:     "./testdata/single",
+			Pkg:     "./testdata/bundle",
 			NewPkg:  "rmconst",
 			Prefix:  "prefix",
 			RmConst: map[string]bool{"V": true},
 		},
 		// Removing a type and its methods but avoid prefixing its references.
 		{
-			Pkg:     "./testdata/single",
+			Pkg:     "./testdata/bundle",
 			NewPkg:  "mvrmtype",
 			Prefix:  "prefix",
 			Types:   map[string]string{"A": "A"},
@@ -48,7 +48,7 @@ func TestSingle(t *testing.T) {
 			err := Bundle(buf, tc)
 			c.Assert(err, qt.IsNil)
 
-			fname := filepath.Join("testdata", "single_"+tc.NewPkg+".golden")
+			fname := filepath.Join("testdata", "bundle_"+tc.NewPkg+".golden")
 			if *update {
 				t.Log("update golden file")
 				if err := ioutil.WriteFile(fname, buf.Bytes(), 0644); err != nil {

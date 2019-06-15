@@ -1,5 +1,6 @@
 // DO NOT EDIT Code automatically generated.
-//go:generate go run github.com/pierrec/packagen/cmd/packagen -v single -o set_int.go -prefix Int -mvtype Elem=int -rmtype Elem set.go
+//go:generate bundle -v bundle -o set_int.go -prefix Int -mvtype Elem=int -rmtype Elem set.go
+
 package set
 
 // Set implements a basic set data structure.

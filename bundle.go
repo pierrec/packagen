@@ -45,7 +45,7 @@ func (o *BundleOption) prefix(pkg *packages.Package) string {
 	return pkg.Name + "_"
 }
 
-// Bundle packs the package identified by o.PkgName into a single file and writes it to the given io.Writer.
+// Bundle packs the package identified by o.PkgName into a bundle file and writes it to the given io.Writer.
 func Bundle(out io.Writer, o BundleOption) error {
 	if o.Log != nil {
 		o.Log.Printf("Options: %#v\n", o)
@@ -102,7 +102,7 @@ func Bundle(out io.Writer, o BundleOption) error {
 		prefixPkg(pkg, o.prefix(pkg), objsToUpdate, renameID)
 	}
 
-	// Build the single file package.
+	// Build the bundle file package.
 	var buf bytes.Buffer
 	newName, err := o.newpkgname()
 	if err != nil {

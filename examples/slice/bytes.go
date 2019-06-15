@@ -1,4 +1,4 @@
-//go:generate go run github.com/pierrec/packagen/cmd/packagen -v single -nogen -o slice_bytes.go -prefix Bytes -mvtype Item=Bytes -rmtype Item slice.go
+//go:generate go run github.com/pierrec/packagen/cmd/packagen -v bundle -nogen -o slice_bytes.go -prefix Bytes -mvtype Item=Bytes -rmtype Item slice.go
 package slice
 
 import "bytes"
