@@ -7,7 +7,6 @@ func (e errorString) Error() string {
 }
 
 const (
-	errMissingPkg   errorString = "missing package name"
-	errTooManyPkg   errorString = "too many packages"
-	errMustGenerate errorString = "must be called by go generate"
+	errMissingPkg errorString = "missing package name"
+	errTooManyPkg errorString = "too many packages"
 )

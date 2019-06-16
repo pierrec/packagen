@@ -1,8 +1,13 @@
 package packagen
 
 import (
+	"fmt"
 	"go/ast"
+	"go/format"
+	"go/printer"
+	"go/token"
 	"go/types"
+	"io"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -106,4 +111,13 @@ func renamer() (rename func(*ast.Ident, string), done func()) {
 				id.Name = name
 			}
 		}
+}
+
+func printNode(out io.Writer, fset *token.FileSet, node interface{}) error {
+	err := format.Node(out, fset, &printer.CommentedNode{Node: node})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprint(out, "\n")
+	return err
 }

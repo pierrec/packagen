@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"go/ast"
-	"go/format"
-	"go/printer"
 	"go/token"
 	"go/types"
 	"io"
@@ -225,12 +223,7 @@ func Bundle(out io.Writer, o BundleOption) error {
 						continue next
 					}
 				}
-				err := format.Node(&buf, pkg.Fset, &printer.CommentedNode{Node: decl})
-				if err != nil {
-					return err
-				}
-				_, err = fmt.Fprint(&buf, "\n")
-				if err != nil {
+				if err := printNode(&buf, pkg.Fset, decl); err != nil {
 					return err
 				}
 			}
